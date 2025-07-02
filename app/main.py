@@ -1,9 +1,8 @@
 from typing import Dict
-
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-
-
+from pydantic import BaseModel
+from app.services.rag_service import rag_answer 
 app = FastAPI()
 security = HTTPBasic()
 
@@ -12,9 +11,9 @@ users_db: Dict[str, Dict[str, str]] = {
     "Tony": {"password": "password123", "role": "engineering"},
     "Bruce": {"password": "securepass", "role": "marketing"},
     "Sam": {"password": "financepass", "role": "finance"},
-    "Peter": {"password": "pete123", "role": "engineering"},
+    "Peter": {"password": "pete123", "role": "c-level"},
     "Sid": {"password": "sidpass123", "role": "marketing"},
-    "Natasha": {"passwoed": "hrpass123", "role": "hr"}
+    "Natasha": {"password": "hrpass123", "role": "hr"}
 }
 
 
@@ -39,8 +38,12 @@ def login(user=Depends(authenticate)):
 def test(user=Depends(authenticate)):
     return {"message": f"Hello {user['username']}! You can now chat.", "role": user["role"]}
 
-
+class ChatRequest(BaseModel):
+    message: str
 # Protected chat endpoint
+
 @app.post("/chat")
-def query(user=Depends(authenticate), message: str = "Hello"):
-    return "Implement this endpoint."
+def chat(req: ChatRequest, user=Depends(authenticate)):
+    role = user["role"]
+    answer = rag_answer(req.message, role)
+    return {"answer": answer}

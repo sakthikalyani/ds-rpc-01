@@ -1,4 +1,4 @@
-# 🤖 FinsightAI
+# FinsightAI
 
 **FinsightAI** is a secure, role-based AI assistant built for FinSolve Technologies to empower different departments with instant, accurate, and context-rich insights using RAG (Retrieval-Augmented Generation).
 
@@ -39,12 +39,12 @@ These gaps reduce productivity and impact strategic outcomes.
 ---
 
 ## Roles              
-**Finance**        
-**Marketing**      
-**HR**             
-**Engineering**    
-**C-Level**  - Full access to all department data
-**Employee** 
+Finance        
+Marketing      
+HR          
+Engineering    
+C-Level  - Full access to all department data
+Employee 
 ---
 
 ## Tech Stack

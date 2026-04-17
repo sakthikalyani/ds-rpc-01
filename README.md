@@ -67,7 +67,7 @@ Employee
    pip install -r requirements.txt
 
 3. Start the backend:
-   uvicorn main:app --reload
+   uvicorn app.main:app --reload
 
 4. Start the Streamlit frontend:
    streamlit run app.py

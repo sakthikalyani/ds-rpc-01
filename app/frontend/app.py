@@ -1,14 +1,17 @@
 import streamlit as st
 import requests
 import time
+import os
 import base64
 # ---- Backend URLs ----
 BACKEND_URL = "http://localhost:8000/chat"
 LOGIN_URL = "http://localhost:8000/login"
 
 # ---- Session Setup ----
-st.set_page_config(page_title="FinsightAI", layout="centered")
-image_path = "app/frontend/img/brainimg.png"
+st.set_page_config(page_title="accessbot", layout="centered")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+image_path = os.path.join(BASE_DIR, "img", "brainimg.png")
+# image_path = "app/frontend/img/brainimg.png"
 with open(image_path, "rb") as image_file:
     encoded_image = base64.b64encode(image_file.read()).decode()
 
@@ -21,7 +24,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-st.caption("💼 Role-based AI assistant for smarter enterprise answers")
+st.caption("Role-based AI assistant for smarter enterprise answers")
 
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -32,7 +35,7 @@ if "authenticated" not in st.session_state:
 
 # ---------------------- LOGIN PAGE -------------------------
 if not st.session_state.authenticated:
-    st.subheader("➡️ Login to FinsightAI")
+    st.subheader(" Login to FinsightAI")
 
     with st.form("login_form"):
         username = st.text_input("👤 Username")
@@ -62,8 +65,8 @@ if not st.session_state.authenticated:
 else:
     col1, col2 = st.columns([7, 1])
     with col1:
-        st.markdown(f"🙋 Welcome, `{st.session_state.username}`")
-        st.markdown(f"🧑‍💼 Role: `{st.session_state.role}`")
+        st.markdown(f"🙋 Welcome, {st.session_state.username}")
+        st.markdown(f"🧑‍💼 Role: {st.session_state.role}")
     with col2:
         if st.button("Logout"):
             for k in ["authenticated", "username", "password", "role", "messages"]:
@@ -92,7 +95,7 @@ else:
         
         with st.chat_message("assistant"):
             typing_placeholder = st.empty()
-            typing_placeholder.markdown("🧠 *FinsightAI is thinking...*")
+            typing_placeholder.markdown("🧠 FinsightAI is thinking...")
 
         # Send to backend
         try:
@@ -113,6 +116,6 @@ else:
                 # Save bot response
                 st.session_state.messages.append({"role": "assistant", "content": full_reply})
             else:
-                typing_placeholder.markdown("⚠️ Error from backend.")
+                typing_placeholder.markdown("⚠ Error from backend.")
         except Exception as e:
             typing_placeholder.markdown(f"❌ {e}")

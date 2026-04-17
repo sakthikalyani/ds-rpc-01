@@ -5,9 +5,12 @@ from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 import pandas as pd
-
+from nemoguardrails import RailsConfig, LLMRails
+from langsmith import traceable, trace
 load_dotenv()
-
+_guardrails_config_path = os.path.join(os.path.dirname(__file__), "guardrails_config")
+_rails_config = RailsConfig.from_path(_guardrails_config_path)
+_rails = LLMRails(_rails_config)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 client_db = PersistentClient(path="./chroma_db")
 collection = client_db.get_or_create_collection(name="company_docs")
@@ -43,60 +46,60 @@ role_mapping = {
     "employee": "general"  # Employee accesses general data
 }
 
+
 def rag_answer(query: str, role: str) -> str:
     print(f"Handling query for role: '{role}'")
     mapped_role = role_mapping.get(role, role)
     citations = ""
+
     if role in csv_agents:
         print(f"🔍 Using CSV agent for role: '{role}'")
-
         try:
             csv_response = csv_agents[role].run(query)
             context = f"CSV Agent Output:\n{csv_response}"
-            role = os.path.relpath(full_path, csv_folder).split(os.sep)[0].lower()
             citations = f"\n\nSources:\n- **{role.capitalize()} Department CSV**\n"
-            
         except Exception as e:
             return f"❌ Failed to run CSV agent for '{role}': {e}"
 
     else:
         print(f"🔍 Using ChromaDB RAG for role: '{role}'")
 
-        # 1. Embed query
         query_embed = get_openai_embedding(query)
 
-        if role == "c-level":
-            results = collection.query(
-                query_embeddings=[query_embed],
-                n_results=10  # full access
-            )
-        else:
-            results = collection.query(
-                query_embeddings=[query_embed],
-                n_results=10,
-                where={"role": mapped_role}  # restrict to their department
-            )
+        with trace(
+            name="retrieval_step",
+            inputs={"query": query, "role": role}
+        ) as rt:
+            if role == "c-level":
+                results = collection.query(
+                    query_embeddings=[query_embed],
+                    n_results=10
+                )
+            else:
+                results = collection.query(
+                    query_embeddings=[query_embed],
+                    n_results=10,
+                    where={"role": mapped_role}
+                )
 
-        # Handle if no documents are returned
-        if not results["documents"] or not results["documents"][0]:
-            return "I'm sorry, I couldn't find an exact answer based on your department's data."
+            if not results.get("documents") or not results["documents"][0]:
+                rt.end(outputs={"chunks": [], "num_chunks": 0})
+                return "I'm sorry, I couldn't find an exact answer based on your department's data."
 
-        context = "\n".join(results["documents"][0])
-        context_chunks = results["documents"][0]
-        metas = results["metadatas"][0]  
+            context_chunks = results["documents"][0]
+            metas = results["metadatas"][0]
+            rt.end(outputs={"chunks": context_chunks, "num_chunks": len(context_chunks)})
 
-    # Optional: deduplicate sources
         seen = set()
         citations = "\n\nSources:\n"
-        for i, meta in enumerate(metas):
-            source = source = meta.get("source", "Unknown File")
+        for meta in metas:
+            source = meta.get("source", "Unknown File")
             if source not in seen:
                 citations += f"- {source}\n"
                 seen.add(source)
 
         context = "\n".join(context_chunks)
-    
-    # Build the prompt using the context
+
     prompt = f"""
 You are a helpful enterprise assistant that provides accurate answers only using the data given in the context below.
 
@@ -108,7 +111,8 @@ Your job is to:
 
 If no relevant info exists, you may respond:
 "I’m sorry, I couldn't find an exact answer based on your department's data."
-Note: Never include email addresses or employee IDs unless directly asked. 
+Note: Never include email addresses or employee IDs unless directly asked.
+
 ---
 
 Context:
@@ -118,20 +122,14 @@ Context:
 User Question:
 {query}
 
-
 Answer: <your answer here>
 Sources:
 <list of sources>
-    """
+"""
 
-    # OpenAI LLM call
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+    with trace(name="llm_step", inputs={"query": query, "role": role}):
+        response = _rails.generate(messages=[
             {"role": "user", "content": prompt}
-        ]
-    )
+        ])
 
-    return response.choices[0].message.content
-
+    return response["content"]

@@ -4,9 +4,9 @@ import time
 import os
 import base64
 # ---- Backend URLs ----
-BACKEND_URL = "http://localhost:8000/chat"
-LOGIN_URL = "http://localhost:8000/login"
-
+API_BASE_URL = os.getenv("API_URL", "http://localhost:8000")
+BACKEND_URL = f"{API_BASE_URL}/chat"
+LOGIN_URL = f"{API_BASE_URL}/login"
 # ---- Session Setup ----
 st.set_page_config(page_title="accessbot", layout="centered")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
